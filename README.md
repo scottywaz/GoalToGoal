@@ -1,7 +1,7 @@
 # GoalToGoal
 Project for Argus Labs interview - Game where you try to score yourself against a PvP opponent
 
-I have created two players that are to be controlled using the spacebar and the mouse cursor. It will move in the direction of the mouse cursor.
+I have created two players that are to be controlled using the arrow keys on the keyboard.
 The goal of the game was to have two players that have goals behind them, you need to get past your opponent and score yourself in the goal.
 
 I was able to setup the base of this with some UI but have been running into issues of the server/client connection.
