@@ -13,9 +13,9 @@ public class PlayerController : NetworkBehaviour
 	[SerializeField] private Rigidbody2D playerRigidBody;
 	[SerializeField] private TextMeshPro playerNameText;
 
-	private NetworkVariable<FixedString64Bytes> playerName = new NetworkVariable<FixedString64Bytes>(new FixedString64Bytes(""));
-	private NetworkVariable<int> score = new NetworkVariable<int>(0);
+	public NetworkVariable<int> score = new NetworkVariable<int>(0);
 
+	private string playerName;
 	private Vector2 _startingPos;
 	private bool _gameStarted = false;
 	private float _currentSpeed = 0f;
@@ -23,7 +23,10 @@ public class PlayerController : NetworkBehaviour
 	private const float MAX_SPEED = 20f;
 	private int _numPlayersReadyToPlayAgain = 0;
 
-	// Start is called before the first frame update
+	private void Awake()
+	{
+	}
+
 	void Start()
     {
 		DontDestroyOnLoad(gameObject);
@@ -31,27 +34,28 @@ public class PlayerController : NetworkBehaviour
 
 	public override void OnNetworkSpawn()
 	{
-		if(IsHost)
-        {
-			playerImage.color = Color.blue;
-			playerName.Value = "Player1";
-		}
-		else
+		if(IsServer)
 		{
-			playerImage.color = Color.red;
-			playerName.Value = "Player2";
+			playerName = "Player" + OwnerClientId;
+			playerImage.color = Color.blue;
+
+			if(!IsHost)
+			{
+				playerImage.color = Color.red;
+			}
 		}
 
-		playerNameText.text = playerName.Value.ToString();
+		playerNameText.text = playerName.ToString();
 		_startingPos = transform.position;
 	}
 
 	public void StartGame()
 	{
-		_gameStarted = true;
+  		_gameStarted = true;
 	}
 
-	public void Reset()
+	[Rpc(SendTo.ClientsAndHost)]
+	public void ResetClientRpc()
 	{
 		transform.position = _startingPos;
 		_gameStarted = false;
@@ -74,16 +78,40 @@ public class PlayerController : NetworkBehaviour
 		GameManager.Singleton.RestartGame();
 	}
 
-	private void UpdateServer()
-    {
-		// Logic to actually move the player with the current speed
+	[ClientRpc]
+	public void PlayerScoreClientRpc()
+	{
+		GameManager.Singleton.PlayerScored(playerName.ToString(), score.Value);
+	}
+
+	[ServerRpc]
+	public void PlayerScoredServerRpc()
+	{
+		score.Value += 1;
+		PlayerScoreClientRpc();
+	}
+
+	private void FixedUpdate()
+	{
+		if (!IsOwner || !_gameStarted) return;
+
+		// accelerating
+		if (Input.GetKey(KeyCode.Space))
+		{
+			_currentSpeed = Mathf.Min(_currentSpeed + ACCEL, MAX_SPEED);
+		}
+		else if (_currentSpeed > 0)// deaccelerate
+		{
+			_currentSpeed = Mathf.Max(_currentSpeed - ACCEL, 0);
+		}
+
 		if (_currentSpeed > 0)
 		{
 			// Use the mouse as the direction to go
-			Vector3 screenPosition = Input.mousePosition;
+       		Vector3 screenPosition = Input.mousePosition;
 			screenPosition.z = 1f;
 			Vector3 targetPos = Camera.main.ScreenToWorldPoint(screenPosition);
-
+				
 			// Update Rotation first
 			float angle = Mathf.Atan2(targetPos.y - transform.position.y, targetPos.x - transform.position.x) * Mathf.Rad2Deg;
 			Quaternion targetRotation = Quaternion.Euler(new Vector3(0, 0, angle));
@@ -98,45 +126,19 @@ public class PlayerController : NetworkBehaviour
 		}
 	}
 
-	private void UpdateClient()
-	{
-		if (!IsLocalPlayer || !_gameStarted) return;
-
-		// accelerating
-		if(Input.GetKey(KeyCode.Space))
-		{
-			_currentSpeed = Mathf.Min(_currentSpeed + ACCEL, MAX_SPEED);		
-		}
-		else if(_currentSpeed > 0)// deaccelerate
-		{
-			_currentSpeed = Mathf.Max(_currentSpeed - ACCEL, 0);
-		}		
-	}
-
-	private void FixedUpdate()
-	{
-		if(IsServer)
-		{
-			UpdateServer();
-		}
-		
-		if(IsClient)
-		{
-			UpdateClient();
-		}
-	}
-
 	private void OnTriggerEnter2D(Collider2D collision)
 	{
-		// Checking if we entered the goal
-		if(collision.tag == "Goal")
+		if (IsOwner)
 		{
-			// Player Scored
-			if((collision.gameObject.name == "Goal1" && !IsHost) ||
-				(collision.gameObject.name == "Goal2" && IsHost))
+			// Checking if we entered the goal
+			if (collision.tag == "Goal")
 			{
-				score.Value += 1;
-				GameManager.Singleton.PlayerScored(playerName.Value.ToString(), score.Value);
+				// Player Scored
+				if ((collision.gameObject.name == "Goal1" && !IsServer) ||
+					(collision.gameObject.name == "Goal2" && IsServer))
+				{
+					PlayerScoredServerRpc();
+				}
 			}
 		}
 	}

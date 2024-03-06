@@ -16,8 +16,7 @@ public class GameManager : MonoBehaviour
 	public static GameManager Singleton { get; private set; }
 
 	public float TimeoutInSeconds { get; private set; }
-
-	private int  _numberOfConnections;
+	public int NumberOfConnections { get; private set; }
 
 	private void Awake()
 	{
@@ -59,14 +58,14 @@ public class GameManager : MonoBehaviour
 	{
 		_networkManager.Shutdown();
 		uiController.ShowMainMenu();
+		NumberOfConnections = 0;
 	}
 
 	public void RestartGame()
 	{
 		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
-		playerController.Reset();
-		uiController.ShowInGameHUD();
-		uiController.StartRound(5, RoundStarted);
+		playerController.ResetClientRpc();
+		StartGame();
 	}
 
 	public void PlayerScored(string playerName, int score)
@@ -75,7 +74,7 @@ public class GameManager : MonoBehaviour
 		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
 		if (playerController != null)
 		{
-			playerController.Reset();
+			playerController.ResetClientRpc();
 		}
 
 		if (score >= 3) // Player Won
@@ -110,17 +109,17 @@ public class GameManager : MonoBehaviour
 	{
 		// 2 Player Game
 		// If someone else tries to connect we don't accept
-		if(_numberOfConnections == 2)
+		if(NumberOfConnections > 2)
 		{
 			response.Approved = false;
 			return;
 		}
 
-		_numberOfConnections++;
+		NumberOfConnections++;
 		response.CreatePlayerObject = true;
 
 		// Start the host on the left side
-		if(_networkManager.IsHost)
+		if(NumberOfConnections == 1)
 		{
 			response.Position = new Vector3(-20, 0, 0);
 			response.Rotation = Quaternion.identity;
@@ -137,11 +136,16 @@ public class GameManager : MonoBehaviour
 
 	private void OnClientConnected(ulong obj)
 	{
-		if (_numberOfConnections == 2)
+		if (!_networkManager.IsHost || NumberOfConnections == 2)
 		{
-			uiController.ShowInGameHUD();
-			uiController.StartRound(5, RoundStarted);
+			StartGame();
 		}
+	}
+
+	private void StartGame()
+	{
+		uiController.ShowInGameHUD();
+		uiController.StartRound(5, RoundStarted);
 	}
 
 	private void RoundStarted()
