@@ -18,8 +18,6 @@ public class GameManager : MonoBehaviour
 	public float TimeoutInSeconds { get; private set; }
 
 	private int  _numberOfConnections;
-	private PlayerController _player1;
-	private PlayerController _player2;
 
 	private void Awake()
 	{
@@ -63,9 +61,17 @@ public class GameManager : MonoBehaviour
 		uiController.ShowMainMenu();
 	}
 
-	public void PlayerScored(int playerNum, int score)
+	public void RestartGame()
 	{
-		uiController.UpdateScore(playerNum, score);
+		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
+		playerController.Reset();
+		uiController.ShowInGameHUD();
+		uiController.StartRound(5, RoundStarted);
+	}
+
+	public void PlayerScored(string playerName, int score)
+	{
+		uiController.UpdateScore(playerName, score);
 		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
 		if (playerController != null)
 		{
@@ -74,12 +80,18 @@ public class GameManager : MonoBehaviour
 
 		if (score >= 3) // Player Won
 		{
-			uiController.ShowEndGame(true, playerNum);
+			uiController.ShowEndGame(playerName);
 		}
 		else
 		{
 			uiController.StartRound(3, RoundStarted);
 		}
+	}
+
+	public void PlayerToPlayAgain()
+	{
+		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
+		playerController.UpdateNumberOfReadyPlayersServerRpc();
 	}
 
 	private void SetConnection(string ipAddressString, string portString)
@@ -125,7 +137,7 @@ public class GameManager : MonoBehaviour
 
 	private void OnClientConnected(ulong obj)
 	{
-		//if (_numberOfConnections == 2)
+		if (_numberOfConnections == 2)
 		{
 			uiController.ShowInGameHUD();
 			uiController.StartRound(5, RoundStarted);

@@ -8,9 +8,11 @@ public class UIController : MonoBehaviour
 {
     [SerializeField] private MainMenu mainMenu;
     [SerializeField] private InGameHUD inGameHud;
+    [SerializeField] private EndGameDialog endGameDialog;
 
     private MainMenu _mainMenu;
     private InGameHUD _inGameHud;
+    private EndGameDialog _endGameDialog;
 
 	// Start is called before the first frame update
 	void Start()
@@ -30,14 +32,16 @@ public class UIController : MonoBehaviour
 		_inGameHud = GameObject.Instantiate(inGameHud, transform);
     }
 
-    public void ShowEndGame(bool show, int playerWhoWon)
+    public void ShowEndGame(string playerNameOfWinner)
     {
-
+        ClearUI();
+        _endGameDialog = GameObject.Instantiate(endGameDialog, transform);
+        _endGameDialog.SetPlayerWon(playerNameOfWinner);
     }
 
-    public void UpdateScore(int playerNumber, int score)
+    public void UpdateScore(string playerName, int score)
     {
-		_inGameHud.UpdateScore(playerNumber, score);
+		_inGameHud.UpdateScore(playerName, score);
     }
 
     public void StartRound(int countdownTime, Action callback)

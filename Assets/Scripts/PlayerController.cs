@@ -13,14 +13,15 @@ public class PlayerController : NetworkBehaviour
 	[SerializeField] private Rigidbody2D playerRigidBody;
 	[SerializeField] private TextMeshPro playerNameText;
 
-	public NetworkVariable<FixedString32Bytes> PlayerName = new NetworkVariable<FixedString32Bytes>(new FixedString32Bytes(""));
-	public NetworkVariable<int> Score = new NetworkVariable<int>(0);
+	private NetworkVariable<FixedString64Bytes> playerName = new NetworkVariable<FixedString64Bytes>(new FixedString64Bytes(""));
+	private NetworkVariable<int> score = new NetworkVariable<int>(0);
 
 	private Vector2 _startingPos;
 	private bool _gameStarted = false;
 	private float _currentSpeed = 0f;
-	private const float ACCEL = .5f;
-	private const float MAX_SPEED = 15f;
+	private const float ACCEL = .75f;
+	private const float MAX_SPEED = 20f;
+	private int _numPlayersReadyToPlayAgain = 0;
 
 	// Start is called before the first frame update
 	void Start()
@@ -33,21 +34,16 @@ public class PlayerController : NetworkBehaviour
 		if(IsHost)
         {
 			playerImage.color = Color.blue;
-			PlayerName.Value = "Player1";
+			playerName.Value = "Player1";
 		}
 		else
 		{
 			playerImage.color = Color.red;
-			PlayerName.Value = "Player2";
+			playerName.Value = "Player2";
 		}
 
-		playerNameText.text = PlayerName.Value.ToString();
+		playerNameText.text = playerName.Value.ToString();
 		_startingPos = transform.position;
-	}
-
-	public override void OnNetworkDespawn()
-	{
-
 	}
 
 	public void StartGame()
@@ -59,9 +55,23 @@ public class PlayerController : NetworkBehaviour
 	{
 		transform.position = _startingPos;
 		_gameStarted = false;
+		_numPlayersReadyToPlayAgain = 0;
 		_currentSpeed = 0f;
 		playerRigidBody.velocity = Vector3.zero;
 		playerRigidBody.SetRotation(0f);
+	}
+
+	[ServerRpc(RequireOwnership = false)]
+	public void UpdateNumberOfReadyPlayersServerRpc()
+	{
+		_numPlayersReadyToPlayAgain++;
+		if(_numPlayersReadyToPlayAgain > 1) RestartGameClientRpc();
+	}
+
+	[ClientRpc]
+	public void RestartGameClientRpc()
+	{
+		GameManager.Singleton.RestartGame();
 	}
 
 	private void UpdateServer()
@@ -125,9 +135,8 @@ public class PlayerController : NetworkBehaviour
 			if((collision.gameObject.name == "Goal1" && !IsHost) ||
 				(collision.gameObject.name == "Goal2" && IsHost))
 			{
-				Score.Value += 1;
-				int playerNum = IsHost ? 1 : 2;
-				GameManager.Singleton.PlayerScored(playerNum, Score.Value);
+				score.Value += 1;
+				GameManager.Singleton.PlayerScored(playerName.Value.ToString(), score.Value);
 			}
 		}
 	}

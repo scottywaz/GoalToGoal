@@ -16,9 +16,9 @@ public class InGameHUD : MonoBehaviour
         GameManager.Singleton.QuitGame();
     }
 
-    public void UpdateScore(int playerNum, int score)
+    public void UpdateScore(string playerName, int score)
     {
-        if(playerNum == 1) player1ScoreText.text = score.ToString();
+        if(playerName.Contains('1')) player1ScoreText.text = score.ToString();
         else player2ScoreText.text = score.ToString();
     }
 

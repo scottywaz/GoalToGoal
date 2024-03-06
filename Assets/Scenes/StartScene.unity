@@ -1366,6 +1366,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mainMenu: {fileID: 1270214904101816346, guid: 194801b438243b14788b6574de61c362, type: 3}
   inGameHud: {fileID: 357972356012560752, guid: 90791620c8280c648905ddf182be0c5f, type: 3}
+  endGameDialog: {fileID: 4871582150381863866, guid: 82553aaedd1e44f478d8f74b877bb44c, type: 3}
 --- !u!1 &1595818045
 GameObject:
   m_ObjectHideFlags: 0
