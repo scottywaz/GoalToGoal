@@ -21,7 +21,7 @@ public class EndGameDialog : MonoBehaviour
         statusText.gameObject.SetActive(true);
         playAgainButton.enabled = false;
         quitButton.enabled = false; 
-        GameManager.Singleton.PlayerToPlayAgain();
+        GameManager.Singleton.PlayerToPlayAgainRpc();
     }
 
     public void OnClickQuit()

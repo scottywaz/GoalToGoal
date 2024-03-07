@@ -7,7 +7,9 @@ public class GameManager : NetworkBehaviour
 {
 	[SerializeField] private UIController uiController;
 
-    private UnityTransport _unityTransport;
+	public NetworkVariable<int> numPlayAgain = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+	private UnityTransport _unityTransport;
 
 	public static GameManager Singleton { get; private set; }
 
@@ -85,10 +87,15 @@ public class GameManager : NetworkBehaviour
 		}
 	}
 
-	public void PlayerToPlayAgain()
+	[Rpc(SendTo.Server)]
+	public void PlayerToPlayAgainRpc()
 	{
-		//PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
-		//playerController.UpdateNumberOfReadyPlayers();
+		numPlayAgain.Value += 1;
+		// We have 2 players ready to play again
+		if(numPlayAgain.Value > 1)
+		{
+			RestartGameRpc();
+		}
 	}
 
 	private void SetConnection(string ipAddressString, string portString)
@@ -159,17 +166,16 @@ public class GameManager : NetworkBehaviour
 
 	private void OnClientDisconnected(ulong clientId)
 	{
-		if (NetworkManager.Singleton.IsServer && clientId != NetworkManager.ServerClientId)
-		{
-			return;
-		}
-		uiController.ShowMainMenu();
+		QuitGameRpc();
 	}
 
 	public override void OnDestroy()
 	{
 		base.OnDestroy();
-		NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-		NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+		if (NetworkManager.Singleton != null)
+		{
+			NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+			NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+		}
 	}
 }

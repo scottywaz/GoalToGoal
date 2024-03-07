@@ -13,6 +13,7 @@ public class PlayerController : NetworkBehaviour
 	private Rigidbody2D _rigidBody;
 	private string playerName;
 	private Vector2 _startingPos;
+	private Quaternion _startingRotation;
 	private bool _gameStarted = false;
 
 	private const float ACCEL = 5f;
@@ -31,14 +32,15 @@ public class PlayerController : NetworkBehaviour
 
 	public override void OnNetworkSpawn()
 	{
-		playerName = "Player" + OwnerClientId;
-		if (!IsLocalPlayer)
+		playerName = "Player" + (OwnerClientId+1);
+		if (IsOwner)
 		{
-			playerImage.color = Color.red;
+			playerImage.color = Color.blue;
 		}
 
 		playerNameText.text = playerName.ToString();
 		_startingPos = transform.position;
+		_startingRotation = transform.rotation;
 	}
 
 	public void StartGame()
@@ -51,36 +53,35 @@ public class PlayerController : NetworkBehaviour
 		transform.position = _startingPos;
 		_gameStarted = false;
 		_rigidBody.velocity = Vector3.zero;
-		_rigidBody.SetRotation(0f);
+		_rigidBody.angularVelocity = 0f;
+		transform.rotation = _startingRotation;
+		score.Value = 0;
 	}
 
-	public void RestartGame()
-	{
-		GameManager.Singleton.RestartGameRpc();
-	}
-
+	// Movement is client authoritative
+	// We should validate the movement on the server
 	private void FixedUpdate()
 	{
 		if (!IsOwner || !_gameStarted) return;
 
 		int spin = 0;
-		if (Input.GetKey(KeyCode.LeftArrow))
+		if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A))
 		{
 			spin += 1;
 		}
 
-		if (Input.GetKey(KeyCode.RightArrow))
+		if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D))
 		{
 			spin -= 1;
 		}
 
 		int speed = 0;
-		if (Input.GetKey(KeyCode.UpArrow))
+		if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W))
 		{
 			speed += 1;
 		}
 
-		if (Input.GetKey(KeyCode.DownArrow))
+		if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S))
 		{
 			speed -= 1;
 		}
