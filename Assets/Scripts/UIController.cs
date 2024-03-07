@@ -1,8 +1,5 @@
 using System;
-using System.Text.RegularExpressions;
-using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class UIController : MonoBehaviour
 {

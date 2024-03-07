@@ -13,7 +13,7 @@ public class InGameHUD : MonoBehaviour
 
     public void OnClickQuit()
     {
-        GameManager.Singleton.QuitGame();
+        GameManager.Singleton.QuitGameRpc();
     }
 
     public void UpdateScore(string playerName, int score)

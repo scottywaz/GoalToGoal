@@ -1,16 +1,12 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.VisualScripting;
 using UnityEngine;
 
-[RequireComponent(typeof(NetworkManager))]
 [DisallowMultipleComponent]
-public class GameManager : MonoBehaviour
+public class GameManager : NetworkBehaviour
 {
 	[SerializeField] private UIController uiController;
 
-    private NetworkManager _networkManager;
     private UnityTransport _unityTransport;
 
 	public static GameManager Singleton { get; private set; }
@@ -28,53 +24,55 @@ public class GameManager : MonoBehaviour
 		{
 			Singleton = this;
 		}
-
-		_networkManager = GetComponent<NetworkManager>();
-		_networkManager.OnClientConnectedCallback += OnClientConnected;
-		_networkManager.OnClientDisconnectCallback += OnClientDisconnected;
-		_networkManager.ConnectionApprovalCallback += ConnectionApproval;
 	}
 
 	// Start is called before the first frame update
 	void Start()
     {
-        _unityTransport = (UnityTransport)_networkManager.NetworkConfig.NetworkTransport;
+		NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+		NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+		NetworkManager.Singleton.ConnectionApprovalCallback += ConnectionApproval;
+
+		_unityTransport = (UnityTransport)NetworkManager.Singleton.NetworkConfig.NetworkTransport;
 		TimeoutInSeconds = (_unityTransport.ConnectTimeoutMS * _unityTransport.MaxConnectAttempts) / 1000f;
 	}
 
 	public void StartHost(string ipAddressString, string portString)
 	{
 		SetConnection(ipAddressString, portString);
-		_networkManager.StartHost();
+		NetworkManager.Singleton.StartHost();
 	}
 
 	public void ConnectToClient(string ipAddressString, string portString)
 	{
 		SetConnection(ipAddressString, portString);
-		_networkManager.StartClient();
+		NetworkManager.Singleton.StartClient();
 	}
 
-	public void QuitGame()
+	[Rpc(SendTo.Everyone)]
+	public void QuitGameRpc()
 	{
-		_networkManager.Shutdown();
+		NetworkManager.Singleton.Shutdown();
 		uiController.ShowMainMenu();
 		NumberOfConnections = 0;
 	}
 
-	public void RestartGame()
+	[Rpc(SendTo.Everyone)]
+	public void RestartGameRpc()
 	{
-		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
-		playerController.ResetClientRpc();
-		StartGame();
+		PlayerController playerController = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerController>();
+		playerController.Reset();
+		StartGameRpc();
 	}
 
-	public void PlayerScored(string playerName, int score)
+	[Rpc(SendTo.Everyone)]
+	public void PlayerScoredRpc(string playerName, int score)
 	{
 		uiController.UpdateScore(playerName, score);
-		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
+		PlayerController playerController = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerController>();
 		if (playerController != null)
 		{
-			playerController.ResetClientRpc();
+			playerController.Reset();
 		}
 
 		if (score >= 3) // Player Won
@@ -89,8 +87,8 @@ public class GameManager : MonoBehaviour
 
 	public void PlayerToPlayAgain()
 	{
-		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
-		playerController.UpdateNumberOfReadyPlayersServerRpc();
+		//PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
+		//playerController.UpdateNumberOfReadyPlayers();
 	}
 
 	private void SetConnection(string ipAddressString, string portString)
@@ -136,13 +134,15 @@ public class GameManager : MonoBehaviour
 
 	private void OnClientConnected(ulong obj)
 	{
-		if (!_networkManager.IsHost || NumberOfConnections == 2)
+		// As soon as we get 1 connection we can start the game
+		if (!NetworkManager.Singleton.IsHost)
 		{
-			StartGame();
+			StartGameRpc();
 		}
 	}
 
-	private void StartGame()
+	[Rpc(SendTo.Everyone)]
+	private void StartGameRpc()
 	{
 		uiController.ShowInGameHUD();
 		uiController.StartRound(5, RoundStarted);
@@ -150,7 +150,7 @@ public class GameManager : MonoBehaviour
 
 	private void RoundStarted()
 	{
-		PlayerController playerController = _networkManager.LocalClient.PlayerObject.GetComponent<PlayerController>();
+		PlayerController playerController = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerController>();
 		if(playerController != null)
 		{
 			playerController.StartGame();
@@ -159,16 +159,17 @@ public class GameManager : MonoBehaviour
 
 	private void OnClientDisconnected(ulong clientId)
 	{
-		if (_networkManager.IsServer && clientId != NetworkManager.ServerClientId)
+		if (NetworkManager.Singleton.IsServer && clientId != NetworkManager.ServerClientId)
 		{
 			return;
 		}
 		uiController.ShowMainMenu();
-	}	
+	}
 
-	private void OnDestroy()
+	public override void OnDestroy()
 	{
-		_networkManager.OnClientConnectedCallback -= OnClientConnected;
-		_networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+		base.OnDestroy();
+		NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+		NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
 	}
 }

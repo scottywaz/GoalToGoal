@@ -1,10 +1,6 @@
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
-using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class PlayerController : NetworkBehaviour
 {
@@ -12,17 +8,12 @@ public class PlayerController : NetworkBehaviour
 	[SerializeField] private ParticleSystem playerParticleSystem;
 	[SerializeField] private TextMeshPro playerNameText;
 
-	public NetworkVariable<int> score = new NetworkVariable<int>(0);
+	public NetworkVariable<int> score = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
 	private Rigidbody2D _rigidBody;
 	private string playerName;
 	private Vector2 _startingPos;
 	private bool _gameStarted = false;
-	private float _currentSpeed = 0f;
-	private float _currentSpin = 0f;
-	private float _oldSpeed = 0f;
-	private float _oldSpin = 0f;
-	private int _numPlayersReadyToPlayAgain = 0;
 
 	private const float ACCEL = 5f;
 	private const float ROTATE_SPEED = 100f;
@@ -55,65 +46,22 @@ public class PlayerController : NetworkBehaviour
   		_gameStarted = true;
 	}
 
-	[ClientRpc]
-	public void ResetClientRpc()
+	public void Reset()
 	{
 		transform.position = _startingPos;
 		_gameStarted = false;
-		_numPlayersReadyToPlayAgain = 0;
-		_currentSpeed = 0f;
 		_rigidBody.velocity = Vector3.zero;
 		_rigidBody.SetRotation(0f);
 	}
 
-	[ServerRpc(RequireOwnership = false)]
-	public void UpdateNumberOfReadyPlayersServerRpc()
+	public void RestartGame()
 	{
-		_numPlayersReadyToPlayAgain++;
-		if(_numPlayersReadyToPlayAgain > 1) RestartGameClientRpc();
-	}
-
-	[ClientRpc]
-	public void RestartGameClientRpc()
-	{
-		GameManager.Singleton.RestartGame();
-	}
-
-	[ClientRpc]
-	public void PlayerScoreClientRpc()
-	{
-		GameManager.Singleton.PlayerScored(playerName.ToString(), score.Value);
-	}
-
-	[ServerRpc]
-	public void PlayerScoredServerRpc()
-	{
-		score.Value += 1;
-		PlayerScoreClientRpc();
-	}
-
-	[ServerRpc]
-	public void UpdateMovementServerRpc(float speed, float spin)
-	{
-		_currentSpeed = speed;
-		_currentSpin = spin;
+		GameManager.Singleton.RestartGameRpc();
 	}
 
 	private void FixedUpdate()
 	{
-		if(IsServer)
-		{
-			UpdateServer();
-		}
-		else
-		{
-			UpdateClient();
-		}
-	}
-
-	private void UpdateClient()
-	{
-		if (!IsLocalPlayer || !_gameStarted) return;
+		if (!IsOwner || !_gameStarted) return;
 
 		int spin = 0;
 		if (Input.GetKey(KeyCode.LeftArrow))
@@ -137,24 +85,14 @@ public class PlayerController : NetworkBehaviour
 			speed -= 1;
 		}
 
-		if(_oldSpeed != speed || _oldSpin != spin)
-		{
-			UpdateMovementServerRpc(speed, spin);
-			_oldSpeed = speed;
-			_oldSpin = spin;
-		}
-	}
-
-	private void UpdateServer()
-	{
 		// update rotation 
-		float rotate = _currentSpin * ROTATE_SPEED;
+		float rotate = spin * ROTATE_SPEED;
 		_rigidBody.angularVelocity = rotate;
 
 		// update velocity
-		if (_currentSpeed != 0)
+		if (speed != 0)
 		{
-			Vector3 speedVector = transform.right * (_currentSpeed * ACCEL);
+			Vector3 speedVector = transform.right * (speed * ACCEL);
 			_rigidBody.AddForce(speedVector);
 
 			// restrict max speed
@@ -176,7 +114,8 @@ public class PlayerController : NetworkBehaviour
 				if ((collision.gameObject.name == "Goal1" && !IsServer) ||
 					(collision.gameObject.name == "Goal2" && IsServer))
 				{
-					PlayerScoredServerRpc();
+					score.Value += 1;
+					GameManager.Singleton.PlayerScoredRpc(playerName.ToString(), score.Value);
 				}
 			}
 		}

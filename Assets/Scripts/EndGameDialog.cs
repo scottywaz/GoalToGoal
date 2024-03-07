@@ -26,6 +26,6 @@ public class EndGameDialog : MonoBehaviour
 
     public void OnClickQuit()
     {
-        GameManager.Singleton.QuitGame();
+        GameManager.Singleton.QuitGameRpc();
     }
 }
